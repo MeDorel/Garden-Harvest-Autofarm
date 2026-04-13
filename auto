@@ -1,0 +1,308 @@
+local Players = game:GetService("Players")
+local workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+if PlayerGui:FindFirstChild("AutoCollectGui") then
+    PlayerGui:FindFirstChild("AutoCollectGui"):Destroy()
+end
+
+local lightingStates = {
+    day = true,
+    nofog = true
+}
+
+local function applyDay()
+    if lightingStates.day then
+        Lighting.ClockTime = 14
+        Lighting.Brightness = 2
+        Lighting.Ambient = Color3.fromRGB(150, 150, 150)
+        Lighting.OutdoorAmbient = Color3.fromRGB(120, 120, 120)
+    end
+end
+
+local function applyNoFog()
+    if lightingStates.nofog then
+        Lighting.FogEnd = 100000
+        Lighting.FogStart = 0
+        for _, v in pairs(Lighting:GetDescendants()) do
+            if v:IsA("Atmosphere") then
+                v:Destroy()
+            end
+        end
+    end
+end
+
+applyDay()
+applyNoFog()
+
+Lighting:GetPropertyChangedSignal("ClockTime"):Connect(applyDay)
+Lighting:GetPropertyChangedSignal("Brightness"):Connect(applyDay)
+Lighting:GetPropertyChangedSignal("Ambient"):Connect(applyDay)
+Lighting:GetPropertyChangedSignal("OutdoorAmbient"):Connect(applyDay)
+Lighting:GetPropertyChangedSignal("FogEnd"):Connect(applyNoFog)
+Lighting:GetPropertyChangedSignal("FogStart"):Connect(applyNoFog)
+
+Lighting.DescendantAdded:Connect(function(v)
+    if lightingStates.nofog and v:IsA("Atmosphere") then
+        v:Destroy()
+    end
+end)
+
+task.spawn(function()
+    while true do
+        applyDay()
+        applyNoFog()
+        task.wait(0.2)
+    end
+end)
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AutoCollectGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = PlayerGui
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 320, 0, 230)
+Frame.Position = UDim2.new(0.5, -160, 0.3, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+Frame.BorderSizePixel = 0
+Frame.Active = true
+Frame.Draggable = true
+Frame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.Parent = Frame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(60, 60, 70)
+UIStroke.Thickness = 2
+UIStroke.Parent = Frame
+
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 45)
+TitleBar.Position = UDim2.new(0, 0, 0, 0)
+TitleBar.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = Frame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 12)
+TitleCorner.Parent = TitleBar
+
+local TitleFix = Instance.new("Frame")
+TitleFix.Size = UDim2.new(1, 0, 0, 12)
+TitleFix.Position = UDim2.new(0, 0, 1, -12)
+TitleFix.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+TitleFix.BorderSizePixel = 0
+TitleFix.Parent = TitleBar
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -50, 1, 0)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Auto Farm"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TitleBar
+
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0, 35, 0, 35)
+CloseButton.Position = UDim2.new(1, -40, 0, 5)
+CloseButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+CloseButton.BorderSizePixel = 0
+CloseButton.Text = "×"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.TextSize = 22
+CloseButton.Parent = TitleBar
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 8)
+CloseCorner.Parent = CloseButton
+
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Size = UDim2.new(0, 280, 0, 65)
+ToggleButton.Position = UDim2.new(0.5, -140, 0, 65)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+ToggleButton.BorderSizePixel = 0
+ToggleButton.Text = "START"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.TextSize = 22
+ToggleButton.Parent = Frame
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 10)
+ToggleCorner.Parent = ToggleButton
+
+local ToggleStroke = Instance.new("UIStroke")
+ToggleStroke.Color = Color3.fromRGB(255, 255, 255)
+ToggleStroke.Thickness = 0
+ToggleStroke.Transparency = 0.8
+ToggleStroke.Parent = ToggleButton
+
+local Timer = Instance.new("TextLabel")
+Timer.Size = UDim2.new(1, -30, 0, 30)
+Timer.Position = UDim2.new(0, 15, 0, 145)
+Timer.BackgroundTransparency = 1
+Timer.Text = "Next cycle: --"
+Timer.TextColor3 = Color3.fromRGB(100, 200, 255)
+Timer.Font = Enum.Font.GothamBold
+Timer.TextSize = 16
+Timer.TextXAlignment = Enum.TextXAlignment.Left
+Timer.Parent = Frame
+
+local Status = Instance.new("TextLabel")
+Status.Size = UDim2.new(1, -30, 0, 50)
+Status.Position = UDim2.new(0, 15, 1, -60)
+Status.BackgroundTransparency = 1
+Status.Text = "Status: Idle"
+Status.TextColor3 = Color3.fromRGB(180, 180, 190)
+Status.Font = Enum.Font.Gotham
+Status.TextSize = 14
+Status.TextXAlignment = Enum.TextXAlignment.Left
+Status.TextYAlignment = Enum.TextYAlignment.Top
+Status.TextWrapped = true
+Status.Parent = Frame
+
+local autoCollectEnabled = false
+local loopRunning = true
+local canStartTimer = false
+
+CloseButton.MouseButton1Click:Connect(function()
+    loopRunning = false
+    autoCollectEnabled = false
+    ScreenGui:Destroy()
+end)
+
+local function FindPlayerPlot()
+    local PlotsFolder = workspace:WaitForChild("Plots")
+    local PlayerDisplayName = LocalPlayer.DisplayName
+    
+    for i = 1, 6 do
+        local plotName = "Plot_" .. i
+        local plot = PlotsFolder:FindFirstChild(plotName)
+        
+        if plot then
+            local success, username = pcall(function()
+                return plot.Model.PlayerDisplay.BillboardGui.Username.Text
+            end)
+            
+            if success and username == PlayerDisplayName then
+                return plot, plotName
+            end
+        end
+    end
+    
+    return nil, nil
+end
+
+local function HarvestAndSell()
+    canStartTimer = false
+    local playerPlot, plotName = FindPlayerPlot()
+    if not playerPlot then
+        Status.Text = "Status: Plot not found!"
+        return
+    end
+    
+    Status.Text = "Status: Harvesting crops..."
+    Timer.Text = "Harvesting..."
+    
+    local plotsFolder = playerPlot:WaitForChild("Model"):WaitForChild("Plots")
+    local harvestedCount = 0
+    
+    for _, cropPlot in pairs(plotsFolder:GetChildren()) do
+        local crop = cropPlot:FindFirstChild("Crop")
+        if crop then
+            pcall(function()
+                local args = {{crop}}
+                LocalPlayer:WaitForChild("Systems"):WaitForChild("Harvest_Crops"):FireServer(unpack(args))
+                harvestedCount = harvestedCount + 1
+            end)
+        end
+    end
+    
+    wait(1)
+    
+    Status.Text = "Status: Going to shop..."
+    Timer.Text = "Going to shop..."
+    
+    local sellCrops = workspace.Plots[plotName].Model:FindFirstChild("Sell_Main")
+    if sellCrops then
+        sellCrops = sellCrops:FindFirstChild("Sell_Crops")
+        if sellCrops then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = sellCrops.CFrame
+        end
+    end
+    
+    wait(2)
+    
+    Status.Text = "Status: Collecting bonus..."
+    Timer.Text = "Collecting bonus..."
+    
+    local bonusMoney = workspace.Plots[plotName].Model:FindFirstChild("Bonus_Money")
+    if bonusMoney then
+        local bonusMain = bonusMoney:FindFirstChild("Main")
+        if bonusMain then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = bonusMain.CFrame
+        end
+    end
+    
+    wait(2)
+    
+    Status.Text = "Status: Returning to plot..."
+    Timer.Text = "Returning..."
+    
+    local tpPart = workspace.Plots[plotName].Model:FindFirstChild("TP_Part")
+    if tpPart then
+        local tpPartPart = tpPart:FindFirstChild("TP_Part")
+        if tpPartPart then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = tpPartPart.CFrame
+        end
+    end
+    
+    wait(1)
+    
+    Status.Text = "Status: Collected " .. harvestedCount .. " crops\nWaiting for next cycle..."
+    canStartTimer = true
+end
+
+ToggleButton.MouseButton1Click:Connect(function()
+    autoCollectEnabled = not autoCollectEnabled
+    
+    if autoCollectEnabled then
+        ToggleButton.Text = "STOP"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(60, 220, 100)
+        ToggleStroke.Thickness = 2
+        HarvestAndSell()
+    else
+        ToggleButton.Text = "START"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+        ToggleStroke.Thickness = 0
+        Status.Text = "Status: Idle"
+        Timer.Text = "Next cycle: --"
+        canStartTimer = false
+    end
+end)
+
+spawn(function()
+    while loopRunning do
+        if autoCollectEnabled and loopRunning and canStartTimer then
+            for i = 60, 0, -1 do
+                if not autoCollectEnabled or not loopRunning or not canStartTimer then break end
+                Timer.Text = "Next cycle: " .. i .. "s"
+                wait(1)
+            end
+            if autoCollectEnabled and loopRunning then
+                HarvestAndSell()
+            end
+        else
+            wait(1)
+        end
+    end
+end)

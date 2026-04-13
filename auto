@@ -224,6 +224,7 @@ local function HarvestAndSell()
                 LocalPlayer:WaitForChild("Systems"):WaitForChild("Harvest_Crops"):FireServer(unpack(args))
                 harvestedCount = harvestedCount + 1
             end)
+            wait(0.4)
         end
     end
     

@@ -15,8 +15,8 @@ local lightingStates = {
 
 local function applyDay()
     if lightingStates.day then
-        Lighting.ClockTime = 14
-        Lighting.Brightness = 2
+        Lighting.ClockTime = 0
+        Lighting.Brightness = 0.7
         Lighting.Ambient = Color3.fromRGB(150, 150, 150)
         Lighting.OutdoorAmbient = Color3.fromRGB(120, 120, 120)
     end

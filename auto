@@ -1,63 +1,48 @@
 local Players = game:GetService("Players")
-local workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 if PlayerGui:FindFirstChild("AutoCollectGui") then
-    PlayerGui:FindFirstChild("AutoCollectGui"):Destroy()
+	PlayerGui:FindFirstChild("AutoCollectGui"):Destroy()
 end
 
-local lightingStates = {
-    day = true,
-    nofog = true
-}
-
+-- Lighting fixes
 local function applyDay()
-    if lightingStates.day then
-        Lighting.ClockTime = 0
-        Lighting.Brightness = 0.7
-        Lighting.Ambient = Color3.fromRGB(150, 150, 150)
-        Lighting.OutdoorAmbient = Color3.fromRGB(120, 120, 120)
-    end
+	Lighting.ClockTime = 0
+	Lighting.Brightness = 0.7
+	Lighting.Ambient = Color3.fromRGB(150, 150, 150)
+	Lighting.OutdoorAmbient = Color3.fromRGB(120, 120, 120)
 end
 
 local function applyNoFog()
-    if lightingStates.nofog then
-        Lighting.FogEnd = 100000
-        Lighting.FogStart = 0
-        for _, v in pairs(Lighting:GetDescendants()) do
-            if v:IsA("Atmosphere") then
-                v:Destroy()
-            end
-        end
-    end
+	Lighting.FogEnd = 100000
+	Lighting.FogStart = 0
+	for _, v in pairs(Lighting:GetDescendants()) do
+		if v:IsA("Atmosphere") then v:Destroy() end
+	end
 end
 
 applyDay()
 applyNoFog()
-
 Lighting:GetPropertyChangedSignal("ClockTime"):Connect(applyDay)
 Lighting:GetPropertyChangedSignal("Brightness"):Connect(applyDay)
-Lighting:GetPropertyChangedSignal("Ambient"):Connect(applyDay)
-Lighting:GetPropertyChangedSignal("OutdoorAmbient"):Connect(applyDay)
 Lighting:GetPropertyChangedSignal("FogEnd"):Connect(applyNoFog)
-Lighting:GetPropertyChangedSignal("FogStart"):Connect(applyNoFog)
-
 Lighting.DescendantAdded:Connect(function(v)
-    if lightingStates.nofog and v:IsA("Atmosphere") then
-        v:Destroy()
-    end
+	if v:IsA("Atmosphere") then v:Destroy() end
 end)
 
 task.spawn(function()
-    while true do
-        applyDay()
-        applyNoFog()
-        task.wait(0.2)
-    end
+	while true do
+		applyDay()
+		applyNoFog()
+		task.wait(0.2)
+	end
 end)
 
+------------------------------------------------
+-- // GUI
+------------------------------------------------
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AutoCollectGui"
 ScreenGui.ResetOnSpawn = false
@@ -150,7 +135,7 @@ local Timer = Instance.new("TextLabel")
 Timer.Size = UDim2.new(1, -30, 0, 30)
 Timer.Position = UDim2.new(0, 15, 0, 145)
 Timer.BackgroundTransparency = 1
-Timer.Text = "Next cycle: --"
+Timer.Text = "Next harvest: --"
 Timer.TextColor3 = Color3.fromRGB(100, 200, 255)
 Timer.Font = Enum.Font.GothamBold
 Timer.TextSize = 16
@@ -170,140 +155,174 @@ Status.TextYAlignment = Enum.TextYAlignment.Top
 Status.TextWrapped = true
 Status.Parent = Frame
 
-local autoCollectEnabled = false
+------------------------------------------------
+-- // LOGIC
+------------------------------------------------
+local HarvestRemote = LocalPlayer:WaitForChild("Systems"):WaitForChild("Harvest_Crops")
+local autoEnabled = false
 local loopRunning = true
-local canStartTimer = false
-
-CloseButton.MouseButton1Click:Connect(function()
-    loopRunning = false
-    autoCollectEnabled = false
-    ScreenGui:Destroy()
-end)
 
 local function FindPlayerPlot()
-    local PlotsFolder = workspace:WaitForChild("Plots")
-    local PlayerDisplayName = LocalPlayer.DisplayName
-    
-    for i = 1, 6 do
-        local plotName = "Plot_" .. i
-        local plot = PlotsFolder:FindFirstChild(plotName)
-        
-        if plot then
-            local success, username = pcall(function()
-                return plot.Model.PlayerDisplay.BillboardGui.Username.Text
-            end)
-            
-            if success and username == PlayerDisplayName then
-                return plot, plotName
-            end
-        end
-    end
-    
-    return nil, nil
+	local PlotsFolder = workspace:WaitForChild("Plots")
+	for i = 1, 6 do
+		local plot = PlotsFolder:FindFirstChild("Plot_" .. i)
+		if plot then
+			local ok, name = pcall(function()
+				return plot.Model.PlayerDisplay.BillboardGui.Username.Text
+			end)
+			if ok and name == LocalPlayer.DisplayName then
+				return plot, "Plot_" .. i
+			end
+		end
+	end
+	return nil, nil
 end
 
-local function HarvestAndSell()
-    canStartTimer = false
-    local playerPlot, plotName = FindPlayerPlot()
-    if not playerPlot then
-        Status.Text = "Status: Plot not found!"
-        return
-    end
-    
-    Status.Text = "Status: Harvesting crops..."
-    Timer.Text = "Harvesting..."
-    
-    local plotsFolder = playerPlot:WaitForChild("Model"):WaitForChild("Plots")
-    local harvestedCount = 0
-    
-    for _, cropPlot in pairs(plotsFolder:GetChildren()) do
-        local crop = cropPlot:FindFirstChild("Crop")
-        if crop then
-            pcall(function()
-                local args = {{crop}}
-                LocalPlayer:WaitForChild("Systems"):WaitForChild("Harvest_Crops"):FireServer(unpack(args))
-                harvestedCount = harvestedCount + 1
-            end)
-            wait(0.4)
-        end
-    end
-    
-    wait(1)
-    
-    Status.Text = "Status: Going to shop..."
-    Timer.Text = "Going to shop..."
-    
-    local sellCrops = workspace.Plots[plotName].Model:FindFirstChild("Sell_Main")
-    if sellCrops then
-        sellCrops = sellCrops:FindFirstChild("Sell_Crops")
-        if sellCrops then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = sellCrops.CFrame
-        end
-    end
-    
-    wait(2)
-    
-    Status.Text = "Status: Collecting bonus..."
-    Timer.Text = "Collecting bonus..."
-    
-    local bonusMoney = workspace.Plots[plotName].Model:FindFirstChild("Bonus_Money")
-    if bonusMoney then
-        local bonusMain = bonusMoney:FindFirstChild("Main")
-        if bonusMain then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = bonusMain.CFrame
-        end
-    end
-    
-    wait(2)
-    
-    Status.Text = "Status: Returning to plot..."
-    Timer.Text = "Returning..."
-    
-    local tpPart = workspace.Plots[plotName].Model:FindFirstChild("TP_Part")
-    if tpPart then
-        local tpPartPart = tpPart:FindFirstChild("TP_Part")
-        if tpPartPart then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = tpPartPart.CFrame
-        end
-    end
-    
-    wait(1)
-    
-    Status.Text = "Status: Collected " .. harvestedCount .. " crops\nWaiting for next cycle..."
-    canStartTimer = true
+local function HarvestAllCrops(plotsFolder)
+	local cropRefs = {}
+	local seen = {}
+
+	local function searchForCrops(parent)
+		for _, child in pairs(parent:GetChildren()) do
+			if child.Name == "Crop" and not seen[child] then
+				seen[child] = true
+				table.insert(cropRefs, child)
+			end
+			searchForCrops(child)
+		end
+	end
+
+	searchForCrops(plotsFolder)
+	Status.Text = "Status: Found " .. #cropRefs .. " crops, harvesting..."
+
+	if #cropRefs == 0 then
+		pcall(function() HarvestRemote:FireServer({}) end)
+		Status.Text = "Status: Fired fruit harvest"
+		return 0
+	end
+
+	local ok, err = pcall(function()
+		HarvestRemote:FireServer(cropRefs)
+	end)
+
+	Status.Text = ok
+		and "Status: Harvested " .. #cropRefs .. " crops"
+		or "Status: Error - " .. tostring(err)
+
+	return #cropRefs
 end
 
-ToggleButton.MouseButton1Click:Connect(function()
-    autoCollectEnabled = not autoCollectEnabled
-    
-    if autoCollectEnabled then
-        ToggleButton.Text = "STOP"
-        ToggleButton.BackgroundColor3 = Color3.fromRGB(60, 220, 100)
-        ToggleStroke.Thickness = 2
-        HarvestAndSell()
-    else
-        ToggleButton.Text = "START"
-        ToggleButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
-        ToggleStroke.Thickness = 0
-        Status.Text = "Status: Idle"
-        Timer.Text = "Next cycle: --"
-        canStartTimer = false
-    end
+local function tpTo(part)
+	local char = LocalPlayer.Character
+	if char and char:FindFirstChild("HumanoidRootPart") and part then
+		char.HumanoidRootPart.CFrame = part.CFrame + Vector3.new(0, 3, 0)
+	end
+end
+
+local function RunCycle()
+	local playerPlot, plotName = FindPlayerPlot()
+	if not playerPlot then
+		Status.Text = "Status: Plot not found!"
+		return
+	end
+
+	-- Step 1: TP home
+	Status.Text = "Status: Going home..."
+	Timer.Text = "Going home..."
+	local tpPart = playerPlot.Model:FindFirstChild("TP_Part")
+	if tpPart then
+		local inner = tpPart:FindFirstChild("TP_Part")
+		if inner then tpTo(inner) end
+	end
+	task.wait(1)
+
+	-- Step 2: Harvest
+	Status.Text = "Status: Harvesting..."
+	Timer.Text = "Harvesting..."
+	local plotsFolder = playerPlot:WaitForChild("Model"):WaitForChild("Plots")
+	local count = HarvestAllCrops(plotsFolder)
+	task.wait(1)
+
+	-- Step 3: Wait 50s before selling
+	for i = 50, 1, -1 do
+		if not autoEnabled or not loopRunning then return end
+		Status.Text = "Status: Harvested " .. count .. " crops"
+		Timer.Text = "Selling in: " .. i .. "s"
+		task.wait(1)
+	end
+
+	-- Step 4: Sell
+	Status.Text = "Status: Going to sell..."
+	Timer.Text = "Selling..."
+	local sellMain = playerPlot.Model:FindFirstChild("Sell_Main")
+	if sellMain then
+		local sellCrops = sellMain:FindFirstChild("Sell_Crops")
+		if sellCrops then tpTo(sellCrops) end
+	end
+	task.wait(2)
+
+	-- Step 5: Bonus money
+	Status.Text = "Status: Collecting bonus..."
+	Timer.Text = "Collecting bonus..."
+	local bonusMoney = playerPlot.Model:FindFirstChild("Bonus_Money")
+	if bonusMoney then
+		local bonusMain = bonusMoney:FindFirstChild("Main")
+		if bonusMain then tpTo(bonusMain) end
+	end
+	task.wait(2)
+
+	-- Step 6: TP back home
+	Status.Text = "Status: Returning home..."
+	Timer.Text = "Going home..."
+	if tpPart then
+		local inner = tpPart:FindFirstChild("TP_Part")
+		if inner then tpTo(inner) end
+	end
+	task.wait(1)
+
+	Status.Text = "Status: Cycle done! " .. count .. " crops harvested"
+end
+
+------------------------------------------------
+-- // BUTTONS
+------------------------------------------------
+CloseButton.MouseButton1Click:Connect(function()
+	loopRunning = false
+	autoEnabled = false
+	ScreenGui:Destroy()
 end)
 
-spawn(function()
-    while loopRunning do
-        if autoCollectEnabled and loopRunning and canStartTimer then
-            for i = 60, 0, -1 do
-                if not autoCollectEnabled or not loopRunning or not canStartTimer then break end
-                Timer.Text = "Next cycle: " .. i .. "s"
-                wait(1)
-            end
-            if autoCollectEnabled and loopRunning then
-                HarvestAndSell()
-            end
-        else
-            wait(1)
-        end
-    end
+ToggleButton.MouseButton1Click:Connect(function()
+	autoEnabled = not autoEnabled
+	if autoEnabled then
+		ToggleButton.Text = "STOP"
+		ToggleButton.BackgroundColor3 = Color3.fromRGB(60, 220, 100)
+		ToggleStroke.Thickness = 2
+	else
+		ToggleButton.Text = "START"
+		ToggleButton.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+		ToggleStroke.Thickness = 0
+		Status.Text = "Status: Idle"
+		Timer.Text = "Next harvest: --"
+	end
+end)
+
+------------------------------------------------
+-- // MAIN LOOP
+------------------------------------------------
+task.spawn(function()
+	while loopRunning do
+		if autoEnabled then
+			RunCycle()
+
+			-- Wait 50s before next harvest
+			for i = 50, 1, -1 do
+				if not autoEnabled or not loopRunning then break end
+				Timer.Text = "Next harvest: " .. i .. "s"
+				task.wait(1)
+			end
+		else
+			task.wait(0.5)
+		end
+	end
 end)
